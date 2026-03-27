@@ -1,0 +1,100 @@
+$Console:Only
+$If WIN Then
+    File_Seperator$ = "\"
+$ElseIf LINUX Then
+File_Seperator$ = "/"
+$End If
+If _CommandCount = 0 Then GoTo Help
+Y% = CsrLin
+Line Input "Enter Password:"; Password$
+Locate Y%, 1: Print Space$(16 + Len(Password$))
+Locate Y%, 1
+If _FileExists("pwddata2") Then FileData$ = StringXor$(_ReadFile$("pwddata2"), Password$) Else FileData$ = ListStringNew
+If Asc(FileData$, 1) <> 1 Then
+    Print "Wrong Password"
+    System
+End If
+Select Case Command$(1)
+    Case "-h", "--help": GoTo Help
+    Case "-a", "--add"
+        M$ = MapNew
+        MapSetKey M$, "type", "text"
+        MapSetKey M$, "identifier", Command$(2)
+        MapSetKey M$, "data", Command$(3)
+        ListStringAdd FileData$, M$
+    Case "-af", "--add-file"
+        F$ = Command$(3)
+        If _FileExists(F$) = 0 Then F$ = _StartDir$ + File_Seperator$ + F$
+        If _FileExists(F$) = 0 Then ErrorMessage "File not found!"
+        M$ = MapNew
+        MapSetKey M$, "type", "file"
+        MapSetKey M$, "identifier", Command$(2)
+        MapSetKey M$, "data", _ReadFile$(F$)
+        ListStringAdd FileData$, M$
+    Case "-c", "--copy"
+        _Clipboard$ = MapGetKey(ListStringGet(FileData$, Val(Command$(2))), "data")
+    Case "-p", "--print"
+        Print MapGetKey(ListStringGet(FileData$, Val(Command$(2))), "data")
+    Case "-e", "--extract"
+        F$ = _StartDir$ + File_Seperator$ + Command$(3)
+        If _FileExists(F$) Then ErrorMessage "File exists!"
+        _WriteFile F$, MapGetKey(ListStringGet(FileData$, Val(Command$(2))), "data")
+    Case "-l", "--list"
+        For I = 1 To ListStringLength(FileData$)
+            M$ = ListStringGet(FileData$, I)
+            T$ = _ToStr$(I) + ": " + MapGetKey(M$, "identifier")
+            If MapGetKey(M$, "type") = "text" Then
+                Print T$; Space$(64 - Len(T$)); MapGetKey(M$, "data")
+            Else
+                Print T$; Space$(64 - Len(T$)); "File Data"
+            End If
+        Next I
+    Case "-d", "--delete"
+        ListStringDelete FileData$, Val(Command$(2))
+End Select
+Print "Done"
+_WriteFile "pwddata2", StringXor(FileData$, Password$)
+System
+Help:
+Print "Password Manager 2"
+Print "By Aaditya Parashar"
+Print "Usage: "; Command$(0); " [Options]"
+Print "    Inputs password at startup"
+Print "Options:"
+Print "    -a   --add [Identifier] [Data]"
+Print "               Add Identifier, Data"
+Print "    -af  --add-file [Identifier] [File]"
+Print "               Add Identifier, File"
+Print "    -c   --copy [Position]"
+Print "               Copy Entry Data"
+Print "    -p   --print [Position]"
+Print "               Print Entry Data"
+Print "    -e   --extract [Position] [File]"
+Print "               Extract File"
+Print "    -l   --list"
+Print "               List All Entries"
+Print "    -d   --delete [Position]"
+Print "               Delete Entry"
+System
+Function StringXor$ (__I$, P$)
+    Static As _Unsigned _Bit * 5 J
+    Static As _Unsigned Long K, L
+    S$ = SHA256$(P$)
+    I$ = __I$
+    J = 0
+    K = 1
+    L = Len(P$)
+    For I = 1 To Len(I$)
+        Asc(I$, I) = Asc(I$, I) Xor Asc(S$, J + 1) Xor Asc(P$, K)
+        J = J + 1
+        K = (K Mod L) + 1
+    Next I
+    StringXor$ = I$
+End Function
+'$Include:'.\ListString.baspe'
+'$Include:'.\Map.baspe'
+'$Include:'.\SHA256.baspe'
+Sub ErrorMessage (T$)
+    Print T$
+    System
+End Sub
